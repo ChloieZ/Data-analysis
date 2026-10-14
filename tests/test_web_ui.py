@@ -44,6 +44,14 @@ def test_all_pages_serve(client):
         assert "/static/app.css" in r.text
 
 
+def test_static_assets_revalidate(client):
+    """静态资源须带 no-cache，避免浏览器缓存旧 js 造成「改了没生效」的假故障。"""
+    for path in ("/static/charts.js", "/static/app.css"):
+        r = client.get(path)
+        assert r.status_code == 200
+        assert r.headers.get("cache-control") == "no-cache"
+
+
 def test_nav_links_between_pages(client):
     for path in PAGES:
         html = client.get(path).text

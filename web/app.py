@@ -33,6 +33,18 @@ from spend_analytics import (  # noqa: E402
 app = FastAPI(title="个人花销分析平台", version="1.0.0")
 app.mount("/static", StaticFiles(directory=str(config.STATIC_DIR)), name="static")
 
+
+@app.middleware("http")
+async def revalidate_static(request, call_next):
+    """静态资源每次回源校验（ETag/Last-Modified 仍在，未变则 304）。
+
+    否则浏览器缓存旧 js/css，会出现「页面改了但行为没变」的假故障。
+    """
+    resp = await call_next(request)
+    if request.url.path.startswith("/static/"):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
 _con = None
 _lock = threading.Lock()
 
