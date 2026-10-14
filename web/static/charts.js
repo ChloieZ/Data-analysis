@@ -7,14 +7,18 @@ const PALETTE = ["#4f8cff", "#22c3a6", "#ffb84d", "#ff6b6b", "#a97bff",
 /* 内置指标：点一下 / 拖一下即可出图 */
 const METRICS = [
   { id: "m_year", name: "年度支出对比", desc: "各年总支出（不选年份=全部）", kind: "simple", chart: "bar", dimension: "year", measure: "total_amount" },
+  { id: "m_quarter", name: "季度支出对比", desc: "各季度总支出", kind: "simple", chart: "bar", dimension: "quarter", measure: "total_amount" },
   { id: "m_trend", name: "月度支出趋势", desc: "各月总支出走势", kind: "simple", chart: "line", dimension: "month", measure: "total_amount" },
   { id: "m_count", name: "月度消费笔数", desc: "各月有效记录数", kind: "simple", chart: "bar", dimension: "month", measure: "order_count" },
   { id: "m_avg", name: "笔均支出趋势", desc: "各月平均每笔支出", kind: "simple", chart: "line", dimension: "month", measure: "avg_amount" },
+  { id: "m_day", name: "每日支出趋势", desc: "逐日支出金额（配合年份/月份筛选）", kind: "simple", chart: "line", dimension: "day", measure: "total_amount" },
   { id: "m_pie", name: "分类占比", desc: "各类别金额占比", kind: "simple", chart: "pie", dimension: "category", measure: "total_amount" },
   { id: "m_cat", name: "分类支出对比", desc: "各类别总支出", kind: "simple", chart: "bar", dimension: "category", measure: "total_amount" },
   { id: "m_cat_cnt", name: "分类消费笔数", desc: "各类别记录数", kind: "simple", chart: "bar", dimension: "category", measure: "order_count" },
+  { id: "m_cat_max", name: "分类最大单笔", desc: "各类别金额最大的一笔", kind: "simple", chart: "bar", dimension: "category", measure: "max_amount" },
   { id: "m_wd", name: "星期支出分布", desc: "各星期支出金额", kind: "simple", chart: "bar", dimension: "weekday", measure: "total_amount" },
   { id: "m_wd_cnt", name: "星期消费笔数", desc: "各星期消费笔数", kind: "simple", chart: "bar", dimension: "weekday", measure: "order_count" },
+  { id: "m_band", name: "金额区间分布", desc: "按单笔金额分档统计笔数", kind: "simple", chart: "bar", dimension: "amount_band", measure: "order_count" },
   { id: "m_note", name: "备注支出排行", desc: "按备注聚合的支出", kind: "simple", chart: "bar", dimension: "note", measure: "total_amount" },
   { id: "m_month_cat", name: "分类 × 月份对比", desc: "多月份各分类并排对比", kind: "crosstab", chart: "bar", dimension: "category", measure: "total_amount" },
 ];

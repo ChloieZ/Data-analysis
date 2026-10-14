@@ -20,15 +20,20 @@ DIMENSIONS = {
         "expr": "substr(month, 1, 4)",
         "order": "dimension",
     },
+    "quarter": {
+        "label": "季度",
+        "expr": "substr(month, 1, 4) || '-Q' || cast(quarter(spend_date) AS VARCHAR)",
+        "order": "dimension",
+    },
     "month": {
         "label": "月份",
         "expr": "month",
         "order": "dimension",
     },
-    "category": {
-        "label": "类别",
-        "expr": "category",
-        "order": "measure DESC",
+    "day": {
+        "label": "日期",
+        "expr": "strftime(spend_date, '%Y-%m-%d')",
+        "order": "dimension",
     },
     "weekday": {
         "label": "星期",
@@ -39,6 +44,21 @@ DIMENSIONS = {
         "order": "_ord",
         "extra": "min(dayofweek(spend_date)) AS _ord",
     },
+    "category": {
+        "label": "类别",
+        "expr": "category",
+        "order": "measure DESC",
+    },
+    "amount_band": {
+        "label": "金额区间",
+        "expr": """CASE WHEN amount < 50 THEN '＜50'
+                        WHEN amount < 100 THEN '50~100'
+                        WHEN amount < 500 THEN '100~500'
+                        WHEN amount < 1000 THEN '500~1000'
+                        ELSE '≥1000' END""",
+        "order": "_ord",
+        "extra": "min(amount) AS _ord",
+    },
     "note": {
         "label": "备注关键词",
         "expr": "coalesce(nullif(note, ''), '（无备注）')",
@@ -48,9 +68,13 @@ DIMENSIONS = {
 
 # 度量白名单
 MEASURES = {
-    "total_amount": {"label": "月总支出", "sql": "round(sum(amount), 2)", "unit": "元"},
+    "total_amount": {"label": "总支出", "sql": "round(sum(amount), 2)", "unit": "元"},
     "order_count": {"label": "笔数", "sql": "count(*)", "unit": "笔"},
     "avg_amount": {"label": "笔均支出", "sql": "round(avg(amount), 2)", "unit": "元"},
+    "max_amount": {"label": "最大单笔", "sql": "round(max(amount), 2)", "unit": "元"},
+    "min_amount": {"label": "最小单笔", "sql": "round(min(amount), 2)", "unit": "元"},
+    "median_amount": {"label": "单笔中位数", "sql": "round(median(amount), 2)", "unit": "元"},
+    "active_days": {"label": "消费天数", "sql": "count(distinct spend_date)", "unit": "天"},
 }
 
 

@@ -529,3 +529,16 @@ def test_years_filter(con):
 def test_list_years(con):
     _seed_years(con)
     assert metrics.list_years(con) == ["2024", "2025"]
+
+
+def test_every_dimension_and_measure_is_queryable(con):
+    """遍历全部维度 × 度量，确保白名单里的表达式/聚合都能真的跑通。"""
+    _seed_years(con)
+    for dim in query.DIMENSIONS:
+        assert query.chart_data(con, dim, "total_amount")["dimension"] == dim
+    for meas in query.MEASURES:
+        d = query.chart_data(con, "category", meas)
+        assert d["measure"] == meas and d["unit"]
+    # 每一列的维度标签/度量标签都要有
+    m = query.meta()
+    assert all(x["label"] for x in m["dimensions"] + m["measures"])
