@@ -29,7 +29,7 @@ from spend_analytics import (  # noqa: E402
     config, db, etl, ingest, metrics, query, report, sqlconsole,
 )
 
-app = FastAPI(title="个人花销分析平台", version="1.2.0")
+app = FastAPI(title="个人花销分析平台", version="1.0.0")
 app.mount("/static", StaticFiles(directory=str(config.STATIC_DIR)), name="static")
 
 _con = None
