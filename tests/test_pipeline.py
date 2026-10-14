@@ -410,3 +410,56 @@ def test_unsupported_suffix_lists_supported(tmp_path):
         ingest.read_spending_table(_txt(tmp_path, "a.doc", "x"))
     assert ".txt" in str(e.value)
     assert set(ingest.SUPPORTED_SUFFIXES) == {".csv", ".xlsx", ".xls", ".txt"}
+
+
+# --------------------------------------------------------------------------
+# 宽表（原始 Excel：日期 + 各分类各占一列）自动 melt
+# --------------------------------------------------------------------------
+def _write_wide(path, sheet, rows):
+    with pd.ExcelWriter(path, engine="openpyxl") as w:
+        pd.DataFrame(rows).to_excel(w, sheet_name=sheet, index=False, header=False)
+    return path
+
+
+def test_read_wide_excel_melts_to_long(tmp_path):
+    p = _write_wide(tmp_path / "wide.xlsx", "Jan", [
+        ["个人支出表", None, None, None],          # 标题行
+        ["日期", "餐饮", "交通", "房租"],           # 表头行
+        ["2025-01-01", 10.5, 3, 1850],
+        ["2025-01-02", None, 8, None],
+        [None, 20, 5, 1850],                      # 无日期（汇总行）→ 跳过
+    ])
+    df = ingest.read_spending_table(p)
+    assert list(df.columns) == ["日期", "类别", "金额", "备注"]
+    assert len(df) == 4
+    assert set(df["类别"]) == {"餐饮", "交通", "房租"}
+    assert df[df["类别"] == "房租"]["金额"].tolist() == ["1850"]
+    assert df["日期"].str[:7].unique().tolist() == ["2025-01"]
+
+
+def test_read_wide_excel_merges_sheets(tmp_path):
+    p = tmp_path / "two.xlsx"
+    with pd.ExcelWriter(p, engine="openpyxl") as w:
+        for sheet, day in (("Jan", "2025-01-01"), ("Feb", "2025-02-01")):
+            pd.DataFrame([["日期", "餐饮"], [day, 5]]).to_excel(
+                w, sheet_name=sheet, index=False, header=False)
+    df = ingest.read_spending_table(p)
+    assert sorted(df["日期"]) == ["2025-01-01", "2025-02-01"]
+
+
+def test_long_table_not_treated_as_wide(tmp_path):
+    """长表不能被误判成宽表。"""
+    p = _txt(tmp_path, "l.txt", "日期,类别,金额,备注\n2025-03-01,餐饮,10,x\n")
+    df = ingest.read_spending_table(p)
+    assert len(df) == 1 and df.iloc[0].tolist() == ["2025-03-01", "餐饮", "10", "x"]
+
+
+def test_ingest_wide_excel_end_to_end(con, tmp_path):
+    p = _write_wide(tmp_path / "w.xlsx", "Jan", [
+        ["日期", "餐饮", "交通"],
+        ["2025-03-01", 10, 5],
+        ["2025-03-02", None, 7],
+    ])
+    assert ingest.ingest_file(con, p)["inserted"] == 3
+    etl.run_etl(con)
+    assert metrics.monthly_total(con, "2025-03") == 22.0

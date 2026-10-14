@@ -63,8 +63,8 @@ def _coerce_date_string(value) -> str:
     return text
 
 
-def _read_text_table(path: Path) -> pd.DataFrame:
-    """读 csv/txt：自动试编码，并嗅探分隔符（, ; 制表符 | 或空白）。"""
+def _read_grid(path: Path) -> pd.DataFrame:
+    """把文件读成「原样网格」（不带表头）：csv/txt 自动试编码 + 嗅探分隔符。"""
     text = None
     for enc in _ENCODINGS:
         try:
@@ -81,37 +81,109 @@ def _read_text_table(path: Path) -> pd.DataFrame:
     except csv.Error:                        # 样本太短/单列 → 退回启发式
         sep = next((d for d in (",", ";", "\t", "|") if d in head), None)
     if sep:
-        return pd.read_csv(io.StringIO(text), sep=sep, dtype=str)
-    return pd.read_csv(io.StringIO(text), sep=r"\s+", engine="python", dtype=str)
+        return pd.read_csv(io.StringIO(text), sep=sep, dtype=str, header=None)
+    return pd.read_csv(io.StringIO(text), sep=r"\s+", engine="python", dtype=str, header=None)
+
+
+def _dedupe_columns(names: list) -> list[str]:
+    """规范化列名并去重/去空（Excel 常见的尾部空列、重名列）。"""
+    out, seen = [], {}
+    for i, n in enumerate(names):
+        k = _normalize_header(n)
+        if not k or k.lower() == "nan" or k.startswith("Unnamed:"):
+            k = f"_blank{i}"
+        if k in seen:
+            seen[k] += 1
+            k = f"{k}_{seen[k]}"
+        else:
+            seen[k] = 0
+        out.append(k)
+    return out
+
+
+def _frame_from_grid(grid: pd.DataFrame) -> pd.DataFrame:
+    """在原始网格里定位表头行（含「日期」/date 的那行），返回其下的数据。"""
+    for i in range(min(10, len(grid))):
+        names = _dedupe_columns(grid.iloc[i].tolist())
+        if config.COL_DATE in names:
+            df = grid.iloc[i + 1:].copy()
+            df.columns = names
+            return df
+    df = grid.iloc[1:].copy()                 # 找不到就用首行当表头
+    df.columns = _dedupe_columns(grid.iloc[0].tolist())
+    return df
+
+
+def _is_wide(df: pd.DataFrame) -> bool:
+    """宽表判定：有「日期」，但没有可用的类别/金额列，且另有 ≥2 个分类列。"""
+    cats = [c for c in df.columns if c != config.COL_DATE and not str(c).startswith("_blank")]
+    has_long = config.COL_AMOUNT in df.columns and config.COL_CATEGORY in df.columns
+    return (not has_long) and len(cats) >= 2
+
+
+def _melt_wide(df: pd.DataFrame) -> pd.DataFrame:
+    """宽表 → 长表：每个「日期 × 分类列」的非零金额展开成一行。"""
+    cats = [c for c in df.columns if c != config.COL_DATE and not str(c).startswith("_blank")]
+    rows = []
+    for _, r in df.iterrows():
+        day = _coerce_date_string(r[config.COL_DATE])
+        if not day:                            # 无日期的行（标题行/汇总行）跳过
+            continue
+        for c in cats:
+            v = str(r[c]).strip()
+            if not v or v.lower() in ("nan", "none"):
+                continue
+            try:
+                amt = float(v)
+            except ValueError:
+                continue
+            if amt:
+                rows.append({config.COL_DATE: day, config.COL_CATEGORY: c,
+                             config.COL_AMOUNT: f"{amt:g}", config.COL_NOTE: ""})
+    return pd.DataFrame(rows, columns=CANONICAL)
+
+
+def _to_canonical(df: pd.DataFrame) -> pd.DataFrame:
+    """把一张表转成规范四列（宽表自动 melt）。"""
+    if _is_wide(df):
+        return _melt_wide(df)
+    for col in CANONICAL:                      # 长表：补齐缺失列
+        if col not in df.columns:
+            df[col] = ""
+    out = df[CANONICAL].copy()
+    out[config.COL_DATE] = out[config.COL_DATE].map(_coerce_date_string)
+    for col in (config.COL_CATEGORY, config.COL_AMOUNT, config.COL_NOTE):
+        out[col] = out[col].fillna("").astype(str).str.strip()
+    return out
 
 
 def read_spending_table(path: str | Path) -> pd.DataFrame:
-    """读取花销表格，返回含规范四列的 DataFrame（值均为字符串/空）。"""
+    """读取花销表格，返回含规范四列的 DataFrame（值均为字符串/空）。
+
+    兼容两种形状：
+      * 长表 —— 已含 日期/类别/金额(/备注)，直接用；
+      * 宽表 —— 「日期 + 各分类各占一列」（原始 Excel 常见），自动 melt 成长表。
+    多 Sheet 的 Excel 会逐 Sheet 解析后合并；表头行允许上方有标题行。
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"找不到文件：{path}")
 
     suffix = path.suffix.lower()
     if suffix in (".xlsx", ".xls"):
-        raw = pd.read_excel(path, dtype=str)
+        # 一次读入所有 Sheet（原样网格）
+        grids = pd.read_excel(path, dtype=str, sheet_name=None, header=None)
+        frames = [_to_canonical(_frame_from_grid(g))
+                  for g in grids.values() if not g.dropna(how="all").empty]
     elif suffix in _TEXT_SUFFIXES:
-        raw = _read_text_table(path)
+        frames = [_to_canonical(_frame_from_grid(_read_grid(path)))]
     else:
         raise ValueError(
             f"不支持的文件类型：{suffix}（仅支持 {' / '.join(SUPPORTED_SUFFIXES)}）")
 
-    raw.columns = [_normalize_header(c) for c in raw.columns]
-
-    # 补齐缺失列
-    for col in CANONICAL:
-        if col not in raw.columns:
-            raw[col] = ""
-
-    df = raw[CANONICAL].copy()
-    df[config.COL_DATE] = df[config.COL_DATE].map(_coerce_date_string)
-    for col in (config.COL_CATEGORY, config.COL_AMOUNT, config.COL_NOTE):
-        df[col] = df[col].fillna("").astype(str).str.strip()
-    return df
+    if not frames:
+        return pd.DataFrame(columns=CANONICAL)
+    return pd.concat(frames, ignore_index=True)
 
 
 def _row_key(df: pd.DataFrame) -> pd.Series:
@@ -318,8 +390,10 @@ def preview_source_file(path: str | Path, limit: int = 50) -> dict:
         raise FileNotFoundError(f"找不到文件：{path}")
     if path.suffix.lower() in (".xlsx", ".xls"):
         df = pd.read_excel(path, dtype=str, nrows=int(limit))
-    else:
-        df = _read_text_table(path).head(int(limit))
+    else:                                      # 文本：首行当表头，取前 N 行
+        grid = _read_grid(path)
+        df = grid.iloc[1:1 + int(limit)].copy()
+        df.columns = [str(c) for c in (grid.iloc[0].tolist() if len(grid) else [])]
     return {
         "name": path.name,
         "columns": [str(c) for c in df.columns],

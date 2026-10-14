@@ -101,8 +101,8 @@ async function deleteFile(name) {
   } catch (e) { toast("删除失败：" + e.message, true); }
 }
 
-async function uploadFile() {
-  const f = document.getElementById("fileInput").files[0];
+async function uploadFile(picked) {
+  const f = picked || document.getElementById("fileInput").files[0];
   if (!f) { toast("请先选择文件", true); return; }
   const fd = new FormData();
   fd.append("file", f);
@@ -162,20 +162,25 @@ async function appendBySql() {
   finally { btn.disabled = false; btn.textContent = "执行追加"; }
 }
 
-/* 拖拽上传 */
+/* 拖拽上传：整页接管「别打开文件」，拖到虚线区即导入 */
 (function () {
+  const input = document.getElementById("fileInput");
   const dz = document.getElementById("dropZone");
+  ["dragover", "drop"].forEach(ev =>
+    document.addEventListener(ev, e => e.preventDefault()));
   ["dragenter", "dragover"].forEach(ev => dz.addEventListener(ev, e => {
     e.preventDefault(); dz.classList.add("over");
   }));
   ["dragleave", "dragend"].forEach(ev => dz.addEventListener(ev, () => dz.classList.remove("over")));
   dz.addEventListener("drop", e => {
-    e.preventDefault(); dz.classList.remove("over");
-    const f = e.dataTransfer.files && e.dataTransfer.files[0];
+    e.preventDefault(); e.stopPropagation();
+    dz.classList.remove("over");
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
     if (!f) { toast("没有检测到文件", true); return; }
-    const dt = new DataTransfer(); dt.items.add(f);
-    document.getElementById("fileInput").files = dt.files;
-    uploadFile();
+    try {                                    // 顺手回填到文件框（部分浏览器不支持构造 DataTransfer）
+      const dt = new DataTransfer(); dt.items.add(f); input.files = dt.files;
+    } catch (err) { /* 忽略：直接传文件对象给上传函数 */ }
+    uploadFile(f);
   });
 })();
 
