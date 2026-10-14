@@ -166,6 +166,16 @@ def _upload(client, name, content, mode="append"):
                        files={"file": (name, io.BytesIO(content), "text/csv")})
 
 
+def test_upload_txt(client):
+    r = _upload(client, "花销.txt", "日期,类别,金额\n2025-03-01,餐饮,12.5\n".encode("utf-8"))
+    assert r.status_code == 200 and r.json()["ingest"]["inserted"] == 1
+
+
+def test_upload_rejects_unknown_suffix(client):
+    r = _upload(client, "a.doc", b"x")
+    assert r.status_code == 400 and ".txt" in r.json()["detail"]
+
+
 def test_source_list_and_preview(client):
     files = client.get("/api/sources").json()["files"]
     assert [f["name"] for f in files] == ["seed.csv"]

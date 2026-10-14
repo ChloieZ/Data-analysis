@@ -221,10 +221,12 @@ def run_etl_endpoint():
 
 @app.post("/api/ingest")
 async def upload_ingest(file: UploadFile = File(...), mode: str = Form("append")):
-    """上传 Excel/CSV 并导入 + 重跑 ETL。"""
+    """上传 Excel/CSV/TXT 并导入 + 重跑 ETL。"""
     name = Path(file.filename or "upload.csv").name
-    if Path(name).suffix.lower() not in (".csv", ".xlsx", ".xls"):
-        raise HTTPException(status_code=400, detail="仅支持 .csv / .xlsx / .xls 文件")
+    if Path(name).suffix.lower() not in ingest.SUPPORTED_SUFFIXES:
+        raise HTTPException(
+            status_code=400,
+            detail="仅支持 " + " / ".join(ingest.SUPPORTED_SUFFIXES) + " 文件")
     if mode not in ("append", "replace"):
         raise HTTPException(status_code=400, detail="mode 只能是 append / replace")
     dest = config.INPUT_DIR / name

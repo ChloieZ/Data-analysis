@@ -28,19 +28,23 @@
   <!-- ==================== 文件接入 ==================== -->
   <div id="tab-files" class="tabpanel" style="display:flex;flex-direction:column;gap:16px">
     <div class="panel">
-      <h2>上传花销表格 <span class="tag">支持 Excel/CSV，上传后自动导入并重跑 ETL</span></h2>
+      <h2>上传花销表格 <span class="tag">支持 Excel / CSV / TXT，上传后自动导入并重跑 ETL</span></h2>
       <div class="dropfile" id="dropZone">
-        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" />
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls,.txt" />
         <select id="ingestMode" style="width:150px">
           <option value="append">追加（去重）</option>
           <option value="replace">替换该月份</option>
         </select>
         <button class="btn primary" id="uploadBtn" onclick="uploadFile()">上传并导入</button>
-        <span class="muted" style="font-size:12.5px">← 也可以把 .csv / .xlsx 文件直接拖到这块虚线区域</span>
+        <span class="muted" style="font-size:12.5px">← 也可以把 .csv / .xlsx / .txt 文件直接拖到这块虚线区域</span>
       </div>
-      <p class="muted" style="margin:10px 0 0;font-size:12px">
-        表头需包含：日期、类别、金额、备注（支持 date / category / amount / note 等英文别名）。
-        追加模式按「日期+类别+金额+备注」判重；替换模式会先删除文件中出现月份的旧数据。
+      <p class="muted" style="margin:10px 0 0;font-size:12px;line-height:1.9">
+        <b>支持格式</b>：<code>.xlsx</code> / <code>.xls</code> / <code>.csv</code> / <code>.txt</code>；
+        首行须为表头，至少包含 <code>日期</code>、<code>类别</code>、<code>金额</code> 三列（<code>备注</code> 可选），
+        列名支持 <code>date / category / amount / note</code> 等英文别名。<br/>
+        <b>数据形状</b>：每行一笔（长表）。若你的表是「日期 + 餐饮 / 交通 / 房租… 各占一列」的宽表，需先转成长表。<br/>
+        <b>TXT / CSV</b>：自动识别 UTF-8 / GBK 编码，自动识别分隔符（逗号、分号、制表符、竖线、空格）。<br/>
+        <b>入库规则</b>：追加模式按「日期+类别+金额+备注」判重（重复跳过）；替换模式会先删除文件中出现月份的旧数据。
       </p>
     </div>
 

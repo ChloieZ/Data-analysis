@@ -1,19 +1,26 @@
-"""数据接入：读取 Excel/CSV 花销表格，写入原始层 raw_spending。
+"""数据接入：读取 Excel/CSV/TXT 花销表格，写入原始层 raw_spending。
 
-- 支持 .xlsx / .xls / .csv
+- 支持 .xlsx / .xls / .csv / .txt
 - 表头支持中英文别名（日期/date、类别/category、金额/amount、备注/note …）
 - 追加模式（默认）：按「日期+类别+金额+备注」判重，避免重复计入
 - 替换模式：先删除表格中出现的月份对应的原始行，再整月写入（修正数据用）
 """
 from __future__ import annotations
 
+import csv
 import datetime as _dt
+import io
 import re
 from pathlib import Path
 
 import pandas as pd
 
 from . import config, etl, sqlconsole
+
+# 支持的数据源后缀（唯一来源，别处一律引用它）
+SUPPORTED_SUFFIXES = (".csv", ".xlsx", ".xls", ".txt")
+_TEXT_SUFFIXES = (".csv", ".txt")
+_ENCODINGS = ("utf-8-sig", "utf-8", "gbk", "gb18030")
 
 # 表头别名 -> 规范列名
 HEADER_ALIASES = {
@@ -56,6 +63,28 @@ def _coerce_date_string(value) -> str:
     return text
 
 
+def _read_text_table(path: Path) -> pd.DataFrame:
+    """读 csv/txt：自动试编码，并嗅探分隔符（, ; 制表符 | 或空白）。"""
+    text = None
+    for enc in _ENCODINGS:
+        try:
+            text = path.read_text(encoding=enc)
+            break
+        except (UnicodeDecodeError, LookupError):
+            continue
+    if text is None:
+        raise ValueError(f"无法解码文件（试过 {', '.join(_ENCODINGS)}）：{path.name}")
+
+    head = "\n".join(text.splitlines()[:20])
+    try:
+        sep = csv.Sniffer().sniff(head, delimiters=",;\t|").delimiter
+    except csv.Error:                        # 样本太短/单列 → 退回启发式
+        sep = next((d for d in (",", ";", "\t", "|") if d in head), None)
+    if sep:
+        return pd.read_csv(io.StringIO(text), sep=sep, dtype=str)
+    return pd.read_csv(io.StringIO(text), sep=r"\s+", engine="python", dtype=str)
+
+
 def read_spending_table(path: str | Path) -> pd.DataFrame:
     """读取花销表格，返回含规范四列的 DataFrame（值均为字符串/空）。"""
     path = Path(path)
@@ -65,14 +94,11 @@ def read_spending_table(path: str | Path) -> pd.DataFrame:
     suffix = path.suffix.lower()
     if suffix in (".xlsx", ".xls"):
         raw = pd.read_excel(path, dtype=str)
-    elif suffix == ".csv":
-        # 兼容 UTF-8 / UTF-8-SIG / GBK
-        try:
-            raw = pd.read_csv(path, dtype=str, encoding="utf-8-sig")
-        except UnicodeDecodeError:
-            raw = pd.read_csv(path, dtype=str, encoding="gbk")
+    elif suffix in _TEXT_SUFFIXES:
+        raw = _read_text_table(path)
     else:
-        raise ValueError(f"不支持的文件类型：{suffix}（仅支持 .csv / .xlsx / .xls）")
+        raise ValueError(
+            f"不支持的文件类型：{suffix}（仅支持 {' / '.join(SUPPORTED_SUFFIXES)}）")
 
     raw.columns = [_normalize_header(c) for c in raw.columns]
 
@@ -253,11 +279,11 @@ def append_via_sql(con, sql: str, dedup: bool = True, source: str = "SQL 追加"
 
 
 def ingest_directory(con, directory: str | Path | None = None, mode: str = "append") -> list[dict]:
-    """批量导入目录下所有 csv/xlsx 文件（按文件名排序）。"""
+    """批量导入目录下所有受支持的文件（按文件名排序）。"""
     directory = Path(directory) if directory else config.INPUT_DIR
     files = sorted(
         [p for p in Path(directory).iterdir()
-         if p.suffix.lower() in (".csv", ".xlsx", ".xls") and not p.name.startswith("~$")]
+         if p.suffix.lower() in SUPPORTED_SUFFIXES and not p.name.startswith("~$")]
     )
     return [ingest_file(con, f, mode=mode) for f in files]
 
@@ -267,7 +293,7 @@ def list_source_files(directory: str | Path | None = None) -> list[dict]:
     directory = Path(directory) if directory else config.INPUT_DIR
     out = []
     for p in sorted(Path(directory).iterdir()):
-        if p.suffix.lower() not in (".csv", ".xlsx", ".xls") or p.name.startswith("~$"):
+        if p.suffix.lower() not in SUPPORTED_SUFFIXES or p.name.startswith("~$"):
             continue
         st = p.stat()
         try:
@@ -293,10 +319,7 @@ def preview_source_file(path: str | Path, limit: int = 50) -> dict:
     if path.suffix.lower() in (".xlsx", ".xls"):
         df = pd.read_excel(path, dtype=str, nrows=int(limit))
     else:
-        try:
-            df = pd.read_csv(path, dtype=str, encoding="utf-8-sig", nrows=int(limit))
-        except UnicodeDecodeError:
-            df = pd.read_csv(path, dtype=str, encoding="gbk", nrows=int(limit))
+        df = _read_text_table(path).head(int(limit))
     return {
         "name": path.name,
         "columns": [str(c) for c in df.columns],

@@ -360,3 +360,53 @@ def test_append_via_sql_rejects_bad_input(con):
         ingest.append_via_sql(con, "SELECT 1; SELECT 2")
     with pytest.raises(ValueError, match="为空"):
         ingest.append_via_sql(con, "  -- 只有注释\n")
+
+
+# --------------------------------------------------------------------------
+# 数据接入：TXT（自动编码 + 自动分隔符）
+# --------------------------------------------------------------------------
+def _txt(tmp_path, name, text, encoding="utf-8"):
+    p = tmp_path / name
+    p.write_text(text, encoding=encoding)
+    return p
+
+
+def test_read_txt_comma(tmp_path):
+    p = _txt(tmp_path, "a.txt", "日期,类别,金额,备注\n2025-03-01,餐饮,12.5,午餐\n")
+    df = ingest.read_spending_table(p)
+    assert list(df.columns) == ["日期", "类别", "金额", "备注"]
+    assert df.iloc[0].tolist() == ["2025-03-01", "餐饮", "12.5", "午餐"]
+
+
+@pytest.mark.parametrize("sep", ["\t", ";", "|"])
+def test_read_txt_sniffs_delimiter(tmp_path, sep):
+    p = _txt(tmp_path, "d.txt", f"date{sep}category{sep}amount\n2025-03-02{sep}交通{sep}8\n")
+    df = ingest.read_spending_table(p)          # 契约：始终返回规范四列
+    assert list(df.columns) == ["日期", "类别", "金额", "备注"]
+    assert df.iloc[0].tolist() == ["2025-03-02", "交通", "8", ""]
+
+
+def test_read_txt_whitespace(tmp_path):
+    p = _txt(tmp_path, "w.txt", "date category amount\n2025-03-05 餐饮 6.5\n")
+    assert ingest.read_spending_table(p).iloc[0].tolist() == ["2025-03-05", "餐饮", "6.5", ""]
+
+
+def test_read_txt_gbk(tmp_path):
+    p = _txt(tmp_path, "g.txt", "日期,类别,金额\n2025-03-04,餐饮,6\n", encoding="gbk")
+    assert ingest.read_spending_table(p).iloc[0].tolist() == ["2025-03-04", "餐饮", "6", ""]
+
+
+def test_ingest_txt_writes_and_etls(con, tmp_path):
+    p = _txt(tmp_path, "m.txt",
+             "日期,类别,金额,备注\n2025-03-01,餐饮,10,午餐\n2025-03-01,交通,5,\n")
+    assert ingest.ingest_file(con, p)["inserted"] == 2
+    etl.run_etl(con)
+    assert con.execute(f"SELECT count(*) FROM {db.config.DWD_TABLE}").fetchone()[0] == 2
+    assert metrics.monthly_total(con, "2025-03") == 15.0
+
+
+def test_unsupported_suffix_lists_supported(tmp_path):
+    with pytest.raises(ValueError) as e:
+        ingest.read_spending_table(_txt(tmp_path, "a.doc", "x"))
+    assert ".txt" in str(e.value)
+    assert set(ingest.SUPPORTED_SUFFIXES) == {".csv", ".xlsx", ".xls", ".txt"}
