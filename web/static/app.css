@@ -81,6 +81,9 @@ td.wrap-cell{white-space:normal;max-width:320px}
 .chip{background:var(--panel2);border:1px dashed var(--line);border-radius:20px;
       padding:5px 13px;font-size:12.5px;cursor:grab;user-select:none;transition:.15s}
 .chip:hover{border-color:var(--accent);color:#fff}
+.chip.on{background:var(--accent);border-style:solid;border-color:var(--accent);color:#fff;font-weight:600}
+.chip.on::after{content:" ✕";opacity:.75;font-size:10px}
+#fYears .chip{cursor:pointer;border-style:solid}   /* 年份是开关标签，不用于拖拽 */
 .chip:active{cursor:grabbing}
 .field{margin-bottom:10px}
 .field label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}

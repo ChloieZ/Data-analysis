@@ -24,16 +24,32 @@ let meta = null;
 let cards = [];
 let uid = 0;
 let custom = { dim: null, meas: null, type: "bar" };
+const pickedYears = new Set();        // 空集合 = 全部年份
 const instances = new Map();          // uid -> echarts 实例
+
+/* 年份开关标签：点一下选中、再点取消；全不选 = 全部年份 */
+function renderYearChips() {
+  document.getElementById("fYears").innerHTML = (meta.years || []).map(y =>
+    `<span class="chip${pickedYears.has(y) ? " on" : ""}" data-year="${y}">${y}</span>`).join("")
+    || `<span class="muted" style="font-size:12px">库内暂无数据</span>`;
+  document.querySelectorAll("#fYears .chip").forEach(el => {
+    el.addEventListener("click", () => {
+      const y = el.dataset.year;
+      pickedYears.has(y) ? pickedYears.delete(y) : pickedYears.add(y);
+      renderYearChips();
+      renderAll();                    // 立即刷新画布
+    });
+  });
+}
 
 /* ---------------- 基础 ---------------- */
 const filters = () => {
-  const years = selectedValues(document.getElementById("fYears"));
   const months = selectedValues(document.getElementById("fMonths"));
   const cats = selectedValues(document.getElementById("fCats"));
   const note = document.getElementById("fNote").value.trim();
   const min = document.getElementById("fMin").value;
-  return { years: years.length ? years : null, months: months.length ? months : null,
+  return { years: pickedYears.size ? [...pickedYears] : null,
+           months: months.length ? months : null,
            categories: cats.length ? cats : null,
            note: note || null, min_amount: min === "" ? null : Number(min) };
 };
@@ -42,6 +58,19 @@ const labelOf = (type, key) => {
   const hit = list.find(x => x.key === key);
   return hit ? hit.label : key;
 };
+
+/* 一键清空所有筛选（含年份标签） */
+function clearFilters() {
+  pickedYears.clear();
+  ["fMonths", "fCats"].forEach(id => {
+    const sel = document.getElementById(id);
+    Array.from(sel.options).forEach(o => { o.selected = false; });
+  });
+  document.getElementById("fNote").value = "";
+  document.getElementById("fMin").value = "";
+  renderYearChips();
+  renderAll();
+}
 
 /* ---------------- 画布 ---------------- */
 function cardHtml(card) {
@@ -262,8 +291,7 @@ async function init() {
   meta = await api("/api/meta");
   const monthOpts = meta.months.map(m => `<option value="${m}">${m}</option>`).join("");
   document.getElementById("fMonths").innerHTML = monthOpts;
-  document.getElementById("fYears").innerHTML =
-    (meta.years || []).map(y => `<option value="${y}">${y}</option>`).join("");
+  renderYearChips();
   document.getElementById("fCats").innerHTML = meta.categories.map(c => `<option value="${c}">${c}</option>`).join("");
   document.getElementById("dimChips").innerHTML =
     meta.dimensions.map(d => `<span class="chip" draggable="true" data-type="dim" data-key="${d.key}">${d.label}</span>`).join("");
