@@ -176,6 +176,32 @@ def test_upload_rejects_unknown_suffix(client):
     assert r.status_code == 400 and ".txt" in r.json()["detail"]
 
 
+def _wide_xlsx_bytes():
+    """内存里造一个「宽表」Excel（日期 + 各分类各占一列）。"""
+    import pandas as pd
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as w:
+        pd.DataFrame([["日期", "餐饮", "交通"], ["2025-03-01", 10, 5]]).to_excel(
+            w, sheet_name="Jan", index=False, header=False)
+    return buf.getvalue()
+
+
+def test_source_parse_to_canonical_and_export(client):
+    """宽表 Excel → 解析成规范四列 → 导出 CSV 数据文件。"""
+    assert _upload(client, "wide.xlsx", _wide_xlsx_bytes()).status_code == 200
+
+    d = client.post("/api/sources/parse", json={"name": "wide.xlsx"}).json()
+    assert d["columns"] == ["日期", "类别", "金额", "备注"]
+    assert d["total"] == 2 and d["amount_total"] == 15.0
+    assert d["rows"][0] == ["2025-03-01", "餐饮", "10", ""]
+
+    r = client.post("/api/sources/parse/export", json={"name": "wide.xlsx"})
+    assert r.status_code == 200 and "text/csv" in r.headers["content-type"]
+    assert r.text.lstrip("\ufeff").splitlines()[0] == "日期,类别,金额,备注"
+
+    assert client.post("/api/sources/parse", json={"name": "missing.xlsx"}).status_code == 404
+
+
 def test_source_list_and_preview(client):
     files = client.get("/api/sources").json()["files"]
     assert [f["name"] for f in files] == ["seed.csv"]

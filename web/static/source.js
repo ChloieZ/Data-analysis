@@ -76,6 +76,7 @@ async function loadFiles() {
       <td>${esc(f.mtime)}</td>
       <td>
         <button class="btn sm" onclick="previewFile('${encodeURIComponent(f.name)}')">预览</button>
+        <button class="btn sm" onclick="parseFile('${encodeURIComponent(f.name)}')">解析</button>
         <button class="btn sm danger" onclick="deleteFile('${encodeURIComponent(f.name)}')">删除</button>
       </td></tr>`).join("");
   box.innerHTML = `<table><thead><tr><th>文件名</th><th>行数</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead><tbody>${rows}</tbody></table>`;
@@ -84,9 +85,48 @@ async function loadFiles() {
 async function previewFile(name) {
   try {
     const d = await postJSON("/api/sources/preview", { name: decodeURIComponent(name), limit: 50 });
-    document.getElementById("previewTag").textContent = `${d.name} · 前 ${d.rows.length} 行`;
+    const sheets = d.sheets && d.sheets.length > 1 ? ` · ${d.sheets.length} 个 Sheet` : "";
+    document.getElementById("previewTag").textContent =
+      `${d.name}${sheets} · 原样前 ${d.rows.length} 行`;
     document.getElementById("previewBox").innerHTML = renderTable(d.columns, d.rows);
   } catch (e) { toast("预览失败：" + e.message, true); }
+}
+
+/* 解析：把文件按平台口径转成规范四列（宽表自动 melt），并支持导出为数据文件 */
+async function parseFile(name) {
+  try {
+    const d = await postJSON("/api/sources/parse", { name: decodeURIComponent(name), limit: 200 });
+    document.getElementById("previewTag").textContent =
+      `${d.name} · 解析为规范四列 · 共 ${fi(d.total)} 行 / ${d.months} 个月 / 合计 ¥${fm(d.amount_total)}`;
+    document.getElementById("previewBox").innerHTML =
+      renderTable(d.columns, d.rows,
+        { note: `仅预览前 ${d.rows.length} 行；点下方按钮导出完整数据文件（CSV）。` }) +
+      `<div style="margin-top:10px">
+         <button class="btn sm primary" onclick="exportParsed('${name}')">⬇ 导出解析结果 CSV</button>
+       </div>`;
+  } catch (e) { toast("解析失败：" + e.message, true); }
+}
+
+async function exportParsed(name) {
+  const n = decodeURIComponent(name);
+  try {
+    const resp = await fetch("/api/sources/parse/export", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: n }),
+    });
+    if (!resp.ok) {
+      const e = await resp.json().catch(() => ({ detail: resp.statusText }));
+      throw new Error(e.detail || "导出失败");
+    }
+    const url = URL.createObjectURL(await resp.blob());
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = n.replace(/\.[^.]+$/, "") + ".parsed.csv";
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    toast("已导出解析后的数据文件");
+  } catch (e) { toast("导出失败：" + e.message, true); }
 }
 
 async function deleteFile(name) {

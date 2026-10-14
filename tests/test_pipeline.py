@@ -463,3 +463,31 @@ def test_ingest_wide_excel_end_to_end(con, tmp_path):
     assert ingest.ingest_file(con, p)["inserted"] == 3
     etl.run_etl(con)
     assert metrics.monthly_total(con, "2025-03") == 22.0
+
+
+# --------------------------------------------------------------------------
+# 预览（多 Sheet）/ 解析（转规范四列）
+# --------------------------------------------------------------------------
+def test_preview_covers_all_sheets(tmp_path):
+    p = tmp_path / "two.xlsx"
+    with pd.ExcelWriter(p, engine="openpyxl") as w:
+        pd.DataFrame([["日期", "餐饮"], ["2025-01-01", 5]]).to_excel(
+            w, sheet_name="Jan", index=False, header=False)
+        pd.DataFrame([["日期", "餐饮"], ["2025-02-01", 7]]).to_excel(
+            w, sheet_name="Feb", index=False, header=False)
+    d = ingest.preview_source_file(p, limit=10)
+    assert d["sheets"] == ["Jan", "Feb"]
+    assert d["columns"][0] == "Sheet"
+    assert [r[0] for r in d["rows"]] == ["Jan", "Feb"]      # 两个 Sheet 都出现
+
+
+def test_parse_source_file_returns_canonical(tmp_path):
+    p = _write_wide(tmp_path / "w.xlsx", "Jan", [
+        ["日期", "餐饮", "交通"],
+        ["2025-03-01", 10, 5],
+        ["2025-03-02", None, 7],
+    ])
+    d = ingest.parse_source_file(p)
+    assert d["columns"] == ["日期", "类别", "金额", "备注"]
+    assert d["total"] == 3 and d["months"] == 1 and d["amount_total"] == 22.0
+    assert len(d["rows"]) == 3

@@ -13,6 +13,7 @@ import sys
 import threading
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
@@ -204,6 +205,40 @@ def preview_source(req: NameReq):
         return ingest.preview_source_file(_source_path(req.name), limit=req.limit)
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
+
+@app.post("/api/sources/parse")
+def parse_source(req: NameReq):
+    """把源文件按平台口径解析成规范四列（宽表自动 melt），返回预览 + 总量。"""
+    try:
+        return ingest.parse_source_file(_source_path(req.name), limit=req.limit)
+    except HTTPException:                       # 交给 FastAPI（如 404 文件名非法/不存在）
+        raise
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {e}")
+
+
+@app.post("/api/sources/parse/export")
+def export_parsed(req: NameReq):
+    """把「解析后的规范四列」导出为 CSV 数据文件。"""
+    try:
+        df = ingest.read_spending_table(_source_path(req.name))
+    except HTTPException:
+        raise
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"{type(e).__name__}: {e}")
+
+    csv_text = sqlconsole.result_to_csv(list(df.columns), df.values.tolist())
+    stem = quote(f"{Path(req.name).stem}.parsed.csv")
+    return Response(
+        content="\ufeff" + csv_text,
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f"attachment; filename=\"parsed.csv\"; filename*=UTF-8''{stem}"},
+    )
 
 
 @app.delete("/api/sources")

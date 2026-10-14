@@ -383,19 +383,55 @@ def list_source_files(directory: str | Path | None = None) -> list[dict]:
     return out
 
 
+def _grids(path: Path) -> dict:
+    """把文件读成 {Sheet名: 原样网格}；文本文件只有一张（键为空串）。"""
+    if path.suffix.lower() in (".xlsx", ".xls"):
+        return pd.read_excel(path, dtype=str, sheet_name=None, header=None)
+    return {"": _read_grid(path)}
+
+
 def preview_source_file(path: str | Path, limit: int = 50) -> dict:
-    """原样预览文件前若干行（保留用户原始表头）。"""
+    """原样预览文件前若干行（保留原始表头）。
+
+    Excel 会**逐 Sheet 全部展示**（多 Sheet 时加一列「Sheet」区分），不再是只读第一页。
+    """
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(f"找不到文件：{path}")
-    if path.suffix.lower() in (".xlsx", ".xls"):
-        df = pd.read_excel(path, dtype=str, nrows=int(limit))
-    else:                                      # 文本：首行当表头，取前 N 行
-        grid = _read_grid(path)
-        df = grid.iloc[1:1 + int(limit)].copy()
-        df.columns = [str(c) for c in (grid.iloc[0].tolist() if len(grid) else [])]
+
+    grids = _grids(path)
+    multi = len(grids) > 1
+    frames = []
+    for name, g in grids.items():
+        if g.dropna(how="all").empty:
+            continue
+        df = g.iloc[1:1 + int(limit)].copy()
+        df.columns = [str(c) for c in (g.iloc[0].tolist() if len(g) else [])]
+        if multi:
+            df.insert(0, "Sheet", name)
+        frames.append(df)
+    out = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
     return {
         "name": path.name,
-        "columns": [str(c) for c in df.columns],
-        "rows": df.fillna("").astype(str).values.tolist(),
+        "sheets": list(grids),
+        "columns": [str(c) for c in out.columns],
+        "rows": out.fillna("").astype(str).values.tolist(),
+    }
+
+
+def parse_source_file(path: str | Path, limit: int = 200) -> dict:
+    """按平台口径把文件解析成规范四列（宽表自动 melt），返回预览 + 总量。"""
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(f"找不到文件：{path}")
+
+    df = read_spending_table(path)
+    amounts = pd.to_numeric(df[config.COL_AMOUNT], errors="coerce").fillna(0)
+    return {
+        "name": path.name,
+        "columns": list(CANONICAL),
+        "rows": df.head(int(limit)).values.tolist(),
+        "total": int(len(df)),
+        "months": int(df[config.COL_DATE].str[:7].nunique()) if len(df) else 0,
+        "amount_total": round(float(amounts.sum()), 2),
     }
