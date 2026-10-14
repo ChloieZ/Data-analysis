@@ -491,3 +491,41 @@ def test_parse_source_file_returns_canonical(tmp_path):
     assert d["columns"] == ["日期", "类别", "金额", "备注"]
     assert d["total"] == 3 and d["months"] == 1 and d["amount_total"] == 22.0
     assert len(d["rows"]) == 3
+
+
+# --------------------------------------------------------------------------
+# 年份维度 / 年份筛选
+# --------------------------------------------------------------------------
+def _seed_years(con):
+    for day, amt in (("2024-03-01", 10), ("2025-03-01", 30), ("2025-04-01", 20)):
+        ingest.append_via_sql(con, f"SELECT '{day}' AS date, '餐饮' AS category, {amt} AS amount")
+    etl.run_etl(con)
+
+
+def test_chart_by_year_dimension(con):
+    _seed_years(con)
+    d = query.chart_data(con, "year", "total_amount")
+    assert d["dimension_label"] == "年份"
+    assert d["rows"] == [{"dimension": "2024", "measure": 10.0},
+                         {"dimension": "2025", "measure": 50.0}]
+
+
+def test_years_filter(con):
+    _seed_years(con)
+    only25 = query.chart_data(con, "month", "total_amount", years=["2025"])
+    assert [r["dimension"] for r in only25["rows"]] == ["2025-03", "2025-04"]
+
+    none = query.chart_data(con, "month", "total_amount", years=["2023"])
+    assert none["rows"] == [] and none["total"] == 0
+
+    both = query.chart_data(con, "year", "total_amount", years=["2024", "2025"])
+    assert len(both["rows"]) == 2            # 多选年份
+
+    # 年份筛选同样作用于明细与交叉表
+    assert len(query.detail(con, years=["2025"])) == 2
+    assert len(query.crosstab(con, years=["2025"])["rows"]) == 2
+
+
+def test_list_years(con):
+    _seed_years(con)
+    assert metrics.list_years(con) == ["2024", "2025"]

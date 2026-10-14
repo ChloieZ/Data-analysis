@@ -202,6 +202,26 @@ def test_source_parse_to_canonical_and_export(client):
     assert client.post("/api/sources/parse", json={"name": "missing.xlsx"}).status_code == 404
 
 
+# --------------------------- 年份维度 / 筛选 ---------------------------
+def test_api_meta_exposes_years(client):
+    d = client.get("/api/meta").json()
+    assert d["years"] == ["2025"]                       # 种子数据是 2025-01/02
+    assert {"key": "year", "label": "年份"} in d["dimensions"]
+
+
+def test_api_chart_by_year_and_years_filter(client):
+    y = client.post("/api/chart", json={"dimension": "year", "measure": "total_amount"}).json()
+    assert [r["dimension"] for r in y["rows"]] == ["2025"]
+
+    m = client.post("/api/chart", json={
+        "dimension": "month", "measure": "total_amount", "years": ["2025"]}).json()
+    assert len(m["rows"]) == 2                          # 2025-01 / 2025-02
+
+    empty = client.post("/api/chart", json={
+        "dimension": "month", "measure": "total_amount", "years": ["2024"]}).json()
+    assert empty["rows"] == [] and empty["total"] == 0
+
+
 def test_source_list_and_preview(client):
     files = client.get("/api/sources").json()["files"]
     assert [f["name"] for f in files] == ["seed.csv"]

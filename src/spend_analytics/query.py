@@ -15,6 +15,11 @@ _DWD = config.DWD_TABLE
 
 # 维度白名单：expr 为分组表达式，order 决定排序
 DIMENSIONS = {
+    "year": {
+        "label": "年份",
+        "expr": "substr(month, 1, 4)",
+        "order": "dimension",
+    },
     "month": {
         "label": "月份",
         "expr": "month",
@@ -61,9 +66,12 @@ def meta() -> dict:
     }
 
 
-def _build_filters(months=None, categories=None, month_from=None, month_to=None,
-                   note_kw=None, min_amount=None, max_amount=None):
+def _build_filters(years=None, months=None, categories=None, month_from=None,
+                   month_to=None, note_kw=None, min_amount=None, max_amount=None):
     clauses, params = [], []
+    if years:                                 # 年份多选（留空 = 全部年份）
+        clauses.append(f"substr(month, 1, 4) IN ({', '.join(['?'] * len(years))})")
+        params.extend(years)
     if months:
         clauses.append(f"month IN ({', '.join(['?'] * len(months))})")
         params.extend(months)
@@ -89,7 +97,7 @@ def _build_filters(months=None, categories=None, month_from=None, month_to=None,
     return where, params
 
 
-def chart_data(con, dimension: str, measure: str, *, months=None, categories=None,
+def chart_data(con, dimension: str, measure: str, *, years=None, months=None, categories=None,
                month_from=None, month_to=None, note_kw=None,
                min_amount=None, max_amount=None, limit: int = 100) -> dict:
     """按维度聚合度量，返回 [{dimension, measure}]。"""
@@ -100,7 +108,7 @@ def chart_data(con, dimension: str, measure: str, *, months=None, categories=Non
 
     dim = DIMENSIONS[dimension]
     extra = (dim.get("extra") + ", ") if dim.get("extra") else ""
-    where, params = _build_filters(months, categories, month_from, month_to,
+    where, params = _build_filters(years, months, categories, month_from, month_to,
                                    note_kw, min_amount, max_amount)
     order = dim["order"].replace("measure", "measure")
     sql = f"""
@@ -125,12 +133,12 @@ def chart_data(con, dimension: str, measure: str, *, months=None, categories=Non
     }
 
 
-def crosstab(con, *, months=None, categories=None, measure: str = "total_amount",
+def crosstab(con, *, years=None, months=None, categories=None, measure: str = "total_amount",
              month_from=None, month_to=None, note_kw=None) -> dict:
     """月份 × 类别 交叉表（环比对比场景）。"""
     if measure not in MEASURES:
         raise QueryError(f"未知度量：{measure}")
-    where, params = _build_filters(months, categories, month_from, month_to, note_kw)
+    where, params = _build_filters(years, months, categories, month_from, month_to, note_kw)
     sql = f"""
         SELECT month, category, {MEASURES[measure]['sql']} AS value
         FROM {_DWD} {where}
@@ -156,10 +164,10 @@ def crosstab(con, *, months=None, categories=None, measure: str = "total_amount"
     }
 
 
-def detail(con, *, months=None, categories=None, month_from=None, month_to=None,
+def detail(con, *, years=None, months=None, categories=None, month_from=None, month_to=None,
            note_kw=None, min_amount=None, max_amount=None, limit: int = 200) -> list[dict]:
     """明细查询：筛选逐笔记录。"""
-    where, params = _build_filters(months, categories, month_from, month_to,
+    where, params = _build_filters(years, months, categories, month_from, month_to,
                                    note_kw, min_amount, max_amount)
     sql = f"""
         SELECT strftime(spend_date, '%Y-%m-%d') AS spend_date, month, category,

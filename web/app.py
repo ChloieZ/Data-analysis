@@ -60,6 +60,7 @@ def _source_path(name: str) -> Path:
 class ChartReq(BaseModel):
     dimension: str = "category"
     measure: str = "total_amount"
+    years: list[str] | None = None
     months: list[str] | None = None
     categories: list[str] | None = None
     note: str | None = None
@@ -68,6 +69,7 @@ class ChartReq(BaseModel):
 
 
 class CrossReq(BaseModel):
+    years: list[str] | None = None
     months: list[str] | None = None
     categories: list[str] | None = None
     note: str | None = None
@@ -75,6 +77,7 @@ class CrossReq(BaseModel):
 
 
 class DetailReq(BaseModel):
+    years: list[str] | None = None
     months: list[str] | None = None
     categories: list[str] | None = None
     note: str | None = None
@@ -147,10 +150,12 @@ def meta():
     with _lock:
         con = get_con()
         months = metrics.list_months(con)
+        years = metrics.list_years(con)
         categories = metrics.list_categories(con)
     return {
         **query.meta(),
         "months": months,
+        "years": years,
         "categories": categories,
         "metrics": metrics.METRIC_CATALOG,
     }
@@ -169,7 +174,7 @@ def chart(req: ChartReq):
         with _lock:
             return query.chart_data(
                 get_con(), req.dimension, req.measure,
-                months=req.months, categories=req.categories,
+                years=req.years, months=req.months, categories=req.categories,
                 note_kw=req.note, min_amount=req.min_amount, limit=req.limit,
             )
     except query.QueryError as e:
@@ -179,15 +184,15 @@ def chart(req: ChartReq):
 @app.post("/api/crosstab")
 def crosstab(req: CrossReq):
     with _lock:
-        return query.crosstab(get_con(), months=req.months, categories=req.categories,
-                              note_kw=req.note, measure=req.measure)
+        return query.crosstab(get_con(), years=req.years, months=req.months,
+                              categories=req.categories, note_kw=req.note, measure=req.measure)
 
 
 @app.post("/api/detail")
 def detail(req: DetailReq):
     with _lock:
         rows = query.detail(
-            get_con(), months=req.months, categories=req.categories,
+            get_con(), years=req.years, months=req.months, categories=req.categories,
             note_kw=req.note, min_amount=req.min_amount, limit=req.limit,
         )
     return {"count": len(rows), "rows": rows}

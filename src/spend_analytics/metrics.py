@@ -49,6 +49,14 @@ def list_months(con) -> list[str]:
     return [r[0] for r in rows]
 
 
+def list_years(con) -> list[str]:
+    """返回所有有数据的年份（升序）。"""
+    rows = con.execute(
+        f"SELECT DISTINCT substr(month, 1, 4) AS y FROM {_DWS} ORDER BY y"
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
 def list_categories(con) -> list[str]:
     rows = con.execute(f"SELECT DISTINCT category FROM {_DWS} ORDER BY category").fetchall()
     return [r[0] for r in rows]

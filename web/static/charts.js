@@ -6,6 +6,7 @@ const PALETTE = ["#4f8cff", "#22c3a6", "#ffb84d", "#ff6b6b", "#a97bff",
 
 /* 内置指标：点一下 / 拖一下即可出图 */
 const METRICS = [
+  { id: "m_year", name: "年度支出对比", desc: "各年总支出（不选年份=全部）", kind: "simple", chart: "bar", dimension: "year", measure: "total_amount" },
   { id: "m_trend", name: "月度支出趋势", desc: "各月总支出走势", kind: "simple", chart: "line", dimension: "month", measure: "total_amount" },
   { id: "m_count", name: "月度消费笔数", desc: "各月有效记录数", kind: "simple", chart: "bar", dimension: "month", measure: "order_count" },
   { id: "m_avg", name: "笔均支出趋势", desc: "各月平均每笔支出", kind: "simple", chart: "line", dimension: "month", measure: "avg_amount" },
@@ -27,11 +28,13 @@ const instances = new Map();          // uid -> echarts 实例
 
 /* ---------------- 基础 ---------------- */
 const filters = () => {
+  const years = selectedValues(document.getElementById("fYears"));
   const months = selectedValues(document.getElementById("fMonths"));
   const cats = selectedValues(document.getElementById("fCats"));
   const note = document.getElementById("fNote").value.trim();
   const min = document.getElementById("fMin").value;
-  return { months: months.length ? months : null, categories: cats.length ? cats : null,
+  return { years: years.length ? years : null, months: months.length ? months : null,
+           categories: cats.length ? cats : null,
            note: note || null, min_amount: min === "" ? null : Number(min) };
 };
 const labelOf = (type, key) => {
@@ -72,7 +75,7 @@ async function renderCard(card) {
   try {
     if (card.kind === "crosstab") {
       drawCrosstab(box, card, await postJSON("/api/crosstab",
-        { months: f.months, categories: f.categories, note: f.note, measure: card.measure }));
+        { years: f.years, months: f.months, categories: f.categories, note: f.note, measure: card.measure }));
     } else {
       drawSimple(box, card, await postJSON("/api/chart",
         { ...f, dimension: card.dimension, measure: card.measure, limit: 100 }));
@@ -259,6 +262,8 @@ async function init() {
   meta = await api("/api/meta");
   const monthOpts = meta.months.map(m => `<option value="${m}">${m}</option>`).join("");
   document.getElementById("fMonths").innerHTML = monthOpts;
+  document.getElementById("fYears").innerHTML =
+    (meta.years || []).map(y => `<option value="${y}">${y}</option>`).join("");
   document.getElementById("fCats").innerHTML = meta.categories.map(c => `<option value="${c}">${c}</option>`).join("");
   document.getElementById("dimChips").innerHTML =
     meta.dimensions.map(d => `<span class="chip" draggable="true" data-type="dim" data-key="${d.key}">${d.label}</span>`).join("");
