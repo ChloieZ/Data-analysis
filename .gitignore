@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# 数据产物
+data/spend.duckdb
+data/spend.duckdb.wal
+data/spend_mart.sqlite
+data/exports/
+data/input/*.csv
+data/input/*.xlsx
+!data/input/.gitkeep
+
+# 个人财务原始数据（隐私，不入库；只保留转换脚本）
+finance_sql/*.xlsx
+finance_sql/*.csv
+
+# Metabase
+metabase/metabase.jar
+metabase/plugins/*.jar
+
+# 编辑器
+.idea/
+.vscode/
+*.swp

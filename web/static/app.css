@@ -1,0 +1,141 @@
+:root{
+  --bg:#0f1420; --panel:#171e2e; --panel2:#1e2637; --line:#2a3446;
+  --txt:#e6ebf5; --muted:#8b98ad; --accent:#4f8cff; --accent2:#22c3a6;
+  --danger:#ff6b6b; --warn:#ffb84d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);
+     font-family:"Segoe UI","Microsoft YaHei",system-ui,sans-serif;font-size:14px}
+
+/* ---------- 顶部导航 ---------- */
+header{display:flex;align-items:center;gap:16px;padding:12px 22px;
+       background:linear-gradient(90deg,#1a2333,#141b28);border-bottom:1px solid var(--line);
+       position:sticky;top:0;z-index:20}
+header h1{font-size:17px;margin:0;font-weight:600;white-space:nowrap}
+header .sub{color:var(--muted);font-size:12px}
+header .spacer{flex:1}
+.nav{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);
+     border-radius:10px;padding:4px}
+.nav a{color:var(--muted);text-decoration:none;padding:6px 15px;border-radius:7px;
+       font-size:13.5px;transition:.15s;white-space:nowrap}
+.nav a:hover{color:#fff;background:var(--panel2)}
+.nav a.active{background:var(--accent);color:#fff}
+
+/* ---------- 通用控件 ---------- */
+.btn{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+     border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px;transition:.15s}
+.btn:hover{border-color:var(--accent);color:#fff}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.1)}
+.btn.danger:hover{border-color:var(--danger);color:var(--danger)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.sm{padding:4px 10px;font-size:12px}
+select,input[type=text],input[type=number],textarea{
+     background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+     border-radius:8px;padding:7px 9px;font-size:13px;outline:none;font-family:inherit}
+select:focus,input:focus,textarea:focus{border-color:var(--accent)}
+select[multiple]{height:96px}
+input[type=file]{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+     border-radius:8px;padding:5px 8px;font-size:13px;max-width:280px;cursor:pointer}
+input[type=file]::file-selector-button{background:var(--accent);color:#fff;border:none;
+     border-radius:6px;padding:6px 13px;margin-right:10px;cursor:pointer;font-size:13px;transition:.15s}
+input[type=file]::file-selector-button:hover{filter:brightness(1.1)}
+input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;cursor:pointer}
+.flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* ---------- 布局 ---------- */
+.wrap{padding:18px 22px;display:flex;flex-direction:column;gap:16px}
+.grid2{display:grid;grid-template-columns:380px 1fr;gap:16px;align-items:start}
+.grid-half{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}
+.panel h2{font-size:15px;margin:0 0 12px;font-weight:600;display:flex;align-items:center;gap:8px}
+.panel h2 .tag{font-size:11px;color:var(--muted);font-weight:400}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.card .label{color:var(--muted);font-size:12px;margin-bottom:8px}
+.card .value{font-size:22px;font-weight:600}
+.card .value small{font-size:12px;color:var(--muted);font-weight:400}
+
+/* ---------- 表格 / 文字 ---------- */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500;position:sticky;top:0;background:var(--panel)}
+td.wrap-cell{white-space:normal;max-width:320px}
+.scroll{max-height:420px;overflow:auto}
+.muted{color:var(--muted)}
+.up{color:var(--danger)} .down{color:var(--accent2)}
+.empty{padding:28px;text-align:center;color:var(--muted);font-size:13px}
+
+/* ---------- 拖拽区 ---------- */
+.dropzone{min-height:44px;border:1.5px dashed var(--line);border-radius:10px;
+          padding:8px 10px;display:flex;align-items:center;gap:8px;color:var(--muted);
+          font-size:12.5px;margin-bottom:10px;transition:.15s}
+.dropzone.over{border-color:var(--accent);background:rgba(79,140,255,.08)}
+.dropzone .pill{background:var(--accent);color:#fff;border-radius:16px;padding:4px 12px;font-size:12.5px}
+.dropzone .pill.meas{background:var(--accent2)}
+.dropfile{border:1.5px dashed var(--line);border-radius:10px;padding:14px;
+          display:flex;gap:10px;align-items:center;flex-wrap:wrap;transition:.15s}
+.dropfile.over{border-color:var(--accent);background:rgba(79,140,255,.08)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 12px}
+.chip{background:var(--panel2);border:1px dashed var(--line);border-radius:20px;
+      padding:5px 13px;font-size:12.5px;cursor:grab;user-select:none;transition:.15s}
+.chip:hover{border-color:var(--accent);color:#fff}
+.chip:active{cursor:grabbing}
+.field{margin-bottom:10px}
+.field label{display:block;color:var(--muted);font-size:12px;margin-bottom:5px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}
+.seg .btn{padding:5px 11px;font-size:12.5px}
+.seg .btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* ---------- SQL 工作台 ---------- */
+.sql-layout{display:grid;grid-template-columns:260px 1fr;gap:16px;align-items:start}
+textarea.editor{width:100%;height:220px;resize:vertical;font-family:Consolas,"Courier New",monospace;
+     font-size:13px;line-height:1.6;white-space:pre;overflow:auto}
+.tablelist{display:flex;flex-direction:column;gap:6px;max-height:460px;overflow:auto}
+.tableitem{display:flex;justify-content:space-between;gap:8px;align-items:center;
+     background:var(--panel2);border:1px solid var(--line);border-radius:8px;
+     padding:7px 10px;font-size:12.5px;cursor:pointer;transition:.15s}
+.tableitem:hover{border-color:var(--accent)}
+.tableitem .cnt{color:var(--muted);font-size:11.5px}
+.sqlstatus{font-size:12.5px;margin-top:10px}
+.sqlstatus.err{color:var(--danger)}
+.sqlstatus.ok{color:var(--accent2)}
+
+/* ---------- 提示 ---------- */
+.toast{position:fixed;right:20px;bottom:20px;background:var(--panel2);border:1px solid var(--accent);
+       color:var(--txt);padding:12px 16px;border-radius:10px;max-width:460px;display:none;z-index:99;
+       box-shadow:0 8px 28px rgba(0,0,0,.45)}
+.toast.err{border-color:var(--danger)}
+
+/* ---------- 子标签（数据管理页） ---------- */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs .tab{padding:8px 18px;cursor:pointer;color:var(--muted);font-size:13.5px;
+           border-bottom:2px solid transparent;transition:.15s;margin-bottom:-1px}
+.tabs .tab:hover{color:#fff}
+.tabs .tab.active{color:#fff;border-bottom-color:var(--accent)}
+
+/* ---------- 图表工坊 ---------- */
+.ws{display:grid;grid-template-columns:340px 1fr;gap:16px;align-items:start}
+.metric-lib{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.metric-card{background:var(--panel2);border:1px solid var(--line);border-radius:9px;
+             padding:9px 11px;cursor:grab;user-select:none;transition:.15s}
+.metric-card:hover{border-color:var(--accent);transform:translateY(-1px)}
+.metric-card:active{cursor:grabbing}
+.metric-card .n{font-size:12.5px;font-weight:600}
+.metric-card .d{font-size:11px;color:var(--muted);margin-top:3px;line-height:1.35}
+.canvas{display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));gap:16px}
+.chart-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.chart-card .hd{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.chart-card .hd .t{font-size:13.5px;font-weight:600;flex:1;
+                   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chart-card .box{height:280px}
+.chart-card .box.tbl{height:280px;overflow:auto}
+.chart-card .box.tbl table{font-size:12px}
+
+@media(max-width:1080px){
+  .grid2,.grid-half,.sql-layout,.ws{grid-template-columns:1fr}
+  .cards{grid-template-columns:repeat(2,1fr)}
+  .canvas{grid-template-columns:1fr}
+  header{flex-wrap:wrap}
+}

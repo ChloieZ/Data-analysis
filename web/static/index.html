@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>数据大屏 · 个人花销分析平台</title>
+<link rel="stylesheet" href="/static/app.css" />
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>个人花销分析平台</h1>
+  <nav class="nav">
+    <a href="/" class="active">数据大屏</a>
+    <a href="/source">数据管理</a>
+    <a href="/charts">图表工坊</a>
+  </nav>
+  <span class="spacer"></span>
+  <select id="monthSel" style="width:130px" onchange="loadDashboard(this.value)"></select>
+  <button class="btn" onclick="loadAll()">刷新</button>
+</header>
+
+<div class="wrap">
+  <!-- 指标卡 -->
+  <div class="cards" id="cards"></div>
+
+  <!-- 趋势 + 占比 -->
+  <div class="grid-half">
+    <div class="panel">
+      <h2>月度趋势 <span class="tag">各月总支出</span></h2>
+      <div id="trendBox" style="height:300px"></div>
+    </div>
+    <div class="panel">
+      <h2>分类占比 <span class="tag" id="pieMonthTag"></span></h2>
+      <div id="pieBox" style="height:300px"></div>
+    </div>
+  </div>
+
+  <!-- 自助分析 -->
+  <div class="panel">
+    <h2>自助分析 <span class="tag">把左侧的「维度 / 度量」拖到放置区，或直接点击选择</span></h2>
+    <div class="grid2">
+      <div>
+        <div class="field"><label>维度（拖拽或点击）</label><div class="chips" id="dimChips"></div></div>
+        <div class="field"><label>度量（拖拽或点击）</label><div class="chips" id="measChips"></div></div>
+        <div class="dropzone" id="dimZone">维度放置区</div>
+        <div class="dropzone" id="measZone">度量放置区</div>
+        <div class="field"><label>图表类型</label>
+          <div class="seg" id="chartTypes">
+            <button class="btn" data-type="table">表格</button>
+            <button class="btn" data-type="line">折线图</button>
+            <button class="btn" data-type="bar">柱状图</button>
+            <button class="btn" data-type="pie">饼图</button>
+          </div>
+        </div>
+        <div class="field"><label>月份筛选（多选，留空=全部）</label><select id="fMonths" multiple></select></div>
+        <div class="field"><label>类别筛选（多选，留空=全部）</label><select id="fCats" multiple></select></div>
+        <div class="field"><label>备注关键词</label><input type="text" id="fNote" placeholder="如：外卖" /></div>
+        <div class="field"><label>最小金额</label><input type="number" id="fMin" placeholder="如：100" /></div>
+        <button class="btn primary" style="width:100%" onclick="runQuery()">生成报表</button>
+      </div>
+      <div>
+        <div id="chartBox" style="height:420px"></div>
+        <div id="tableBox" class="scroll" style="display:none"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 环比 + 明细 -->
+  <div class="grid-half">
+    <div class="panel">
+      <h2>环比对比 <span class="tag" id="momTag"></span></h2>
+      <div class="scroll" id="momBox" style="max-height:360px"></div>
+    </div>
+    <div class="panel">
+      <h2>明细追溯 <span class="tag">按条件筛选逐笔记录</span></h2>
+      <div class="flex" style="margin-bottom:10px">
+        <select id="dMonths" multiple style="width:150px;height:64px"></select>
+        <select id="dCats" multiple style="width:150px;height:64px"></select>
+        <input type="number" id="dMin" placeholder="最小金额" style="width:110px" />
+        <button class="btn primary" onclick="runDetail()">查询</button>
+      </div>
+      <div class="scroll" id="detailBox" style="max-height:300px"></div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/common.js"></script>
+<script src="/static/dashboard.js"></script>
+</body>
+</html>

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>数据管理 · 个人花销分析平台</title>
+<link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+<header>
+  <h1>个人花销分析平台</h1>
+  <nav class="nav">
+    <a href="/">数据大屏</a>
+    <a href="/source" class="active">数据管理</a>
+    <a href="/charts">图表工坊</a>
+  </nav>
+  <span class="spacer"></span>
+  <button class="btn" onclick="refreshTab()">刷新</button>
+  <button class="btn primary" onclick="triggerEtl()">重新同步 (ETL)</button>
+</header>
+
+<div class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-tab="files" onclick="switchTab('files')">文件接入</div>
+    <div class="tab" data-tab="sql" onclick="switchTab('sql')">SQL 工作台</div>
+  </div>
+
+  <!-- ==================== 文件接入 ==================== -->
+  <div id="tab-files" class="tabpanel" style="display:flex;flex-direction:column;gap:16px">
+    <div class="panel">
+      <h2>上传花销表格 <span class="tag">支持 Excel/CSV，上传后自动导入并重跑 ETL</span></h2>
+      <div class="dropfile" id="dropZone">
+        <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" />
+        <select id="ingestMode" style="width:150px">
+          <option value="append">追加（去重）</option>
+          <option value="replace">替换该月份</option>
+        </select>
+        <button class="btn primary" id="uploadBtn" onclick="uploadFile()">上传并导入</button>
+        <span class="muted" style="font-size:12.5px">← 也可以把 .csv / .xlsx 文件直接拖到这块虚线区域</span>
+      </div>
+      <p class="muted" style="margin:10px 0 0;font-size:12px">
+        表头需包含：日期、类别、金额、备注（支持 date / category / amount / note 等英文别名）。
+        追加模式按「日期+类别+金额+备注」判重；替换模式会先删除文件中出现月份的旧数据。
+      </p>
+    </div>
+
+    <div class="panel">
+      <h2>SQL 追加 <span class="tag">用 SQL 语句直接追加数据，随后自动重跑 ETL</span></h2>
+      <textarea id="appendSql" class="editor" spellcheck="false" style="height:140px"
+        placeholder="① 查询写法：SELECT 日期, 类别, 金额, 备注 ...&#10;② 写入写法：INSERT INTO raw_spending (&quot;日期&quot;,&quot;类别&quot;,&quot;金额&quot;,&quot;备注&quot;) VALUES (...)"></textarea>
+      <div class="flex" style="margin-top:10px">
+        <label class="flex" style="gap:6px;font-size:12.5px;color:var(--muted);cursor:pointer">
+          <input type="checkbox" id="appendDedup" checked /> 按「日期+类别+金额+备注」去重
+        </label>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn" onclick="setAppendExample(0)">示例：查询追加</button>
+        <button class="btn" onclick="setAppendExample(1)">示例：INSERT 语句</button>
+        <button class="btn primary" id="appendBtn" onclick="appendBySql()">执行追加</button>
+      </div>
+      <p class="muted" style="margin:10px 0 0;font-size:12px">
+        <b>① 查询写法</b>：结果集需含 <code>日期</code>、<code>类别</code>、<code>金额</code>（<code>备注</code> 可选），
+        列名支持 <code>date / category / amount / note</code> 别名 → 按上面勾选的规则去重后追加；
+        <b>② 写入写法</b>：<code>INSERT / UPDATE</code> 等直接执行，去重由语句自己负责。
+        建议写入 <code>raw_spending</code> —— ETL 会基于它重建明细层与汇总层（只支持单条语句）。
+      </p>
+    </div>
+
+    <div class="cards" id="layerCards"></div>
+
+    <div class="grid2">
+      <div class="panel">
+        <h2>已上传文件 <span class="tag" id="fileCount"></span></h2>
+        <div class="scroll" id="fileList"></div>
+      </div>
+      <div class="panel">
+        <h2>表格预览 <span class="tag" id="previewTag">点击左侧文件查看前 50 行</span></h2>
+        <div class="scroll" id="previewBox" style="max-height:520px"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SQL 工作台 ==================== -->
+  <div id="tab-sql" class="tabpanel" style="display:none">
+    <div class="sql-layout">
+      <div class="panel">
+        <h2>数据库表 <span class="tag" id="tableCount"></span></h2>
+        <div class="tablelist" id="tableList"></div>
+        <p class="muted" style="font-size:11.5px;margin:10px 0 0">点击表名可预览前 100 行</p>
+      </div>
+
+      <div>
+        <div class="panel">
+          <h2>SQL 编辑器 <span class="tag">支持 SELECT 查询与 CREATE 建表 · 结果可「保存为表」或导出 CSV · Ctrl + Enter 执行</span></h2>
+          <textarea id="editor" class="editor" spellcheck="false"></textarea>
+          <div class="flex" style="margin-top:10px">
+            <button class="btn primary" id="runBtn" onclick="runSql()">▶ 执行</button>
+            <button class="btn" id="saveBtn" onclick="saveAsTable()">💾 保存为表</button>
+            <button class="btn" id="exportBtn" onclick="exportSql()">⬇ 导出 CSV</button>
+            <button class="btn" onclick="setExample(0)">示例：建汇总表</button>
+            <button class="btn" onclick="setExample(1)">示例：查询 Top</button>
+            <button class="btn" onclick="setExample(2)">示例：自定义指标</button>
+            <button class="btn" onclick="clearSql()">清空</button>
+            <span class="spacer" style="flex:1"></span>
+            <span class="muted" id="sqlHint" style="font-size:12px"></span>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:16px">
+          <h2>执行结果 <span class="tag" id="resultTag"></span></h2>
+          <div id="resultBox" class="scroll" style="max-height:520px">
+            <div class="empty">输入 SQL 后点击「执行」</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/common.js"></script>
+<script src="/static/source.js"></script>
+</body>
+</html>

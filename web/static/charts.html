@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>图表工坊 · 个人花销分析平台</title>
+<link rel="stylesheet" href="/static/app.css" />
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+</head>
+<body>
+<header>
+  <h1>个人花销分析平台</h1>
+  <nav class="nav">
+    <a href="/">数据大屏</a>
+    <a href="/source">数据管理</a>
+    <a href="/charts" class="active">图表工坊</a>
+  </nav>
+  <span class="spacer"></span>
+  <button class="btn" onclick="clearCanvas()">清空画布</button>
+  <button class="btn primary" onclick="renderAll()">刷新图表</button>
+</header>
+
+<div class="wrap">
+  <div class="ws">
+    <!-- 左侧：筛选 + 指标库 + 自定义 -->
+    <div style="display:flex;flex-direction:column;gap:16px">
+      <div class="panel">
+        <h2>数据筛选 <span class="tag">对所有图表生效</span></h2>
+        <div class="field"><label>月份（多选，留空=全部）</label><select id="fMonths" multiple style="height:84px"></select></div>
+        <div class="field"><label>类别（多选，留空=全部）</label><select id="fCats" multiple style="height:84px"></select></div>
+        <div class="field"><label>备注关键词</label><input type="text" id="fNote" placeholder="如：外卖" /></div>
+        <div class="field"><label>最小金额</label><input type="number" id="fMin" placeholder="如：100" /></div>
+        <button class="btn primary" style="width:100%" onclick="renderAll()">应用筛选</button>
+      </div>
+
+      <div class="panel">
+        <h2>内置指标 <span class="tag">点一下即出图，也可拖到右侧画布</span></h2>
+        <div class="metric-lib" id="metricLib"></div>
+      </div>
+
+      <div class="panel">
+        <h2>自定义图表 <span class="tag">拖维度 / 度量到放置区</span></h2>
+        <div class="field"><label>维度（拖拽或点击）</label><div class="chips" id="dimChips"></div></div>
+        <div class="field"><label>度量（拖拽或点击）</label><div class="chips" id="measChips"></div></div>
+        <div class="dropzone" id="dimZone">维度放置区</div>
+        <div class="dropzone" id="measZone">度量放置区</div>
+        <div class="field"><label>图表类型</label>
+          <div class="seg" id="chartTypes">
+            <button class="btn active" data-type="bar">柱状图</button>
+            <button class="btn" data-type="line">折线图</button>
+            <button class="btn" data-type="pie">饼图</button>
+            <button class="btn" data-type="table">表格</button>
+          </div>
+        </div>
+        <button class="btn primary" style="width:100%" onclick="addCustomChart()">添加到画布</button>
+      </div>
+    </div>
+
+    <!-- 右侧：画布 -->
+    <div>
+      <div class="panel" id="canvasDrop" style="margin-bottom:16px;transition:.15s">
+        <h2>图表画布 <span class="tag" id="canvasTag">把左侧「内置指标」拖到这里，或直接点击</span></h2>
+        <div id="canvas" class="canvas"></div>
+        <div class="empty" id="canvasEmpty">画布还是空的 —— 点击左侧任意内置指标即可生成图表</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="/static/common.js"></script>
+<script src="/static/charts.js"></script>
+</body>
+</html>
